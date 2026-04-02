@@ -1,118 +1,125 @@
 import java.util.*;
 
-// CLASS: Reservation
-// Represents a confirmed booking
-class Reservation {
-    private String reservationId;
-    private String guestName;
-    private String roomType;
-    private int nights;
-
-    public Reservation(String reservationId, String guestName, String roomType, int nights) {
-        this.reservationId = reservationId;
-        this.guestName = guestName;
-        this.roomType = roomType;
-        this.nights = nights;
-    }
-
-    public String getReservationId() {
-        return reservationId;
-    }
-
-    public String getGuestName() {
-        return guestName;
-    }
-
-    public String getRoomType() {
-        return roomType;
-    }
-
-    public int getNights() {
-        return nights;
-    }
-
-    @Override
-    public String toString() {
-        return "Reservation ID: " + reservationId +
-                ", Guest: " + guestName +
-                ", Room: " + roomType +
-                ", Nights: " + nights;
+// CUSTOM EXCEPTION
+class InvalidBookingException extends Exception {
+    public InvalidBookingException(String message) {
+        super(message);
     }
 }
 
 
-// CLASS: BookingHistory
-// Stores confirmed reservations in insertion order
-class BookingHistory {
+// ROOM INVENTORY CLASS
+class RoomInventory {
 
-    private List<Reservation> reservations;
+    private Map<String, Integer> inventory;
 
-    public BookingHistory() {
-        reservations = new ArrayList<>();
+    public RoomInventory() {
+        inventory = new HashMap<>();
+        inventory.put("Single", 2);
+        inventory.put("Double", 2);
+        inventory.put("Suite", 1);
     }
 
-    // Add confirmed booking
-    public void addReservation(Reservation reservation) {
-        reservations.add(reservation);
+    public boolean isValidRoomType(String roomType) {
+        return inventory.containsKey(roomType);
     }
 
-    // Retrieve all bookings
-    public List<Reservation> getAllReservations() {
-        return reservations;
+    public boolean isAvailable(String roomType) {
+        return inventory.get(roomType) > 0;
     }
-}
 
+    public void reserveRoom(String roomType) throws InvalidBookingException {
 
-// CLASS: BookingReportService
-// Generates reports from booking history
-class BookingReportService {
-
-    public void generateReport(BookingHistory history) {
-
-        List<Reservation> reservations = history.getAllReservations();
-
-        if (reservations.isEmpty()) {
-            System.out.println("No bookings found.");
-            return;
+        if (!isValidRoomType(roomType)) {
+            throw new InvalidBookingException("Invalid room type selected.");
         }
 
-        System.out.println("===== BOOKING REPORT =====");
-
-        int totalBookings = reservations.size();
-        int totalNights = 0;
-
-        for (Reservation r : reservations) {
-            System.out.println(r);
-            totalNights += r.getNights();
+        if (!isAvailable(roomType)) {
+            throw new InvalidBookingException("Room not available.");
         }
 
-        System.out.println("--------------------------");
-        System.out.println("Total Bookings: " + totalBookings);
-        System.out.println("Total Nights Booked: " + totalNights);
+        inventory.put(roomType, inventory.get(roomType) - 1);
     }
 }
 
 
-// MAIN CLASS
+// VALIDATOR CLASS
+class ReservationValidator {
+
+    public void validate(String guestName, String roomType, RoomInventory inventory)
+            throws InvalidBookingException {
+
+        if (guestName == null || guestName.trim().isEmpty()) {
+            throw new InvalidBookingException("Guest name cannot be empty.");
+        }
+
+        if (!inventory.isValidRoomType(roomType)) {
+            throw new InvalidBookingException("Invalid room type selected.");
+        }
+
+        if (!inventory.isAvailable(roomType)) {
+            throw new InvalidBookingException("Room not available.");
+        }
+    }
+}
+
+
+// SIMPLE QUEUE CLASS
+class BookingRequestQueue {
+
+    private Queue<String> queue = new LinkedList<>();
+
+    public void addRequest(String request) {
+        queue.add(request);
+    }
+
+    public void processRequest() {
+        if (!queue.isEmpty()) {
+            System.out.println("Processing booking request: " + queue.poll());
+        }
+    }
+}
+
+
+// ✅ MAIN CLASS (Corrected Name)
 public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        // Create booking history
-        BookingHistory history = new BookingHistory();
+        System.out.println("Booking Validation");
 
-        // Simulate confirmed bookings
-        Reservation r1 = new Reservation("RES101", "Alice", "Deluxe", 2);
-        Reservation r2 = new Reservation("RES102", "Bob", "Suite", 3);
-        Reservation r3 = new Reservation("RES103", "Charlie", "Standard", 1);
+        Scanner scanner = new Scanner(System.in);
 
-        // Add to history (in order)
-        history.addReservation(r1);
-        history.addReservation(r2);
-        history.addReservation(r3);
+        RoomInventory inventory = new RoomInventory();
+        ReservationValidator validator = new ReservationValidator();
+        BookingRequestQueue bookingQueue = new BookingRequestQueue();
 
-        // Admin generates report
-        BookingReportService reportService = new BookingReportService();
-        reportService.generateReport(history);
+        try {
+
+            System.out.print("Enter guest name: ");
+            String guestName = scanner.nextLine();
+
+            System.out.print("Enter room type (Single/Double/Suite): ");
+            String roomType = scanner.nextLine();
+
+            // FAIL-FAST VALIDATION
+            validator.validate(guestName, roomType, inventory);
+
+            // RESERVE ROOM
+            inventory.reserveRoom(roomType);
+
+            // PROCESS REQUEST
+            bookingQueue.addRequest(guestName + " - " + roomType);
+            bookingQueue.processRequest();
+
+            System.out.println("Booking successful!");
+
+        } catch (InvalidBookingException e) {
+
+            System.out.println("Booking failed: " + e.getMessage());
+
+        } finally {
+            scanner.close();
+        }
     }
 }
